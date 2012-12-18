@@ -34,13 +34,24 @@ attribute 'euca/ssh_public_key',
   :required => 'required'
 
 
-dependencies = %w(apt ntp kvm logrotate)
+dependencies = %w(ntp logrotate)
+
+# TODO: Not a fool proof way to detect distro.
+# Debian compatibility not tested by Chong.
+if File.exist?('/etc/redhat-release')
+  dependencies.append("yum")
+elsif File.exist?('/etc/debian_version')
+  dependencies.append("apt")
+  dependencies.append("kvm")
+else
+  Chef::Application.exit!("This recipe only supports Debian or Red Hat Compatible Variants")
+end
 
 dependencies.each do |dep|
   depends dep
 end
 
-distros = %w(debian)
+distros = %w(debian centos redhat)
 
 distros.each do |dist|
   supports dist
