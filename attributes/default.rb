@@ -1,4 +1,4 @@
-default[:euca][:install][:version] = "2.0.3"
+default[:euca][:install][:version] = "3.1.2"
 
 default[:euca][:user] = "eucalyptus"
 default[:euca][:hypervisor] = "kvm"

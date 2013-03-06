@@ -39,10 +39,10 @@ dependencies = %w(ntp logrotate)
 # TODO: Not a fool proof way to detect distro.
 # Debian compatibility not tested by Chong.
 if File.exist?('/etc/redhat-release')
-  dependencies.append("yum")
+  dependencies.push("yum")
 elsif File.exist?('/etc/debian_version')
-  dependencies.append("apt")
-  dependencies.append("kvm")
+  dependencies.push("apt")
+  dependencies.push("kvm")
 else
   Chef::Application.exit!("This recipe only supports Debian or Red Hat Compatible Variants")
 end
