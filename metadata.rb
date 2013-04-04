@@ -34,12 +34,13 @@ attribute 'euca/ssh_public_key',
   :required => 'required'
 
 
-dependencies = %w(ntp logrotate)
+dependencies = %w(ntp logrotate cron)
 
 # TODO: Not a fool proof way to detect distro.
 # Debian compatibility not tested by Chong.
 if File.exist?('/etc/redhat-release')
   dependencies.push("yum")
+  dependencies.push("yumrepo")
 elsif File.exist?('/etc/debian_version')
   dependencies.push("apt")
   dependencies.push("kvm")

@@ -1,18 +1,31 @@
-require_recipe 'eucalyptus::default'
+include_recipe 'eucalyptus::default'
 
-if node[:euca][:hypervisor] == 'kvm'
-  require_recipe 'kvm'
+if File.exist?('/etc/debian_version')
+  if node[:euca][:hypervisor] == 'kvm'
+    require_recipe 'kvm'
+  end
 end
 
 # euca nc
 #
-packages = %w(ntpdate open-iscsi libcrypt-openssl-random-perl libcrypt-openssl-rsa-perl libcrypt-x509-perl eucalyptus-nc)
+packages_debian = %w(ntpdate open-iscsi libcrypt-openssl-random-perl libcrypt-openssl-rsa-perl libcrypt-x509-perl eucalyptus-nc)
+packages_yum = %w(ntpdate iscsi-initiator-utils perl-Crypt-OpenSSL-RSA perl-Crypt-OpenSSL-Random perl-Crypt-OpenSSL-X509 eucalyptus-nc)
 
-packages.each do |pkg|
-  package pkg do
-    options "--force-yes"
-    action :install
+if File.exists?('/etc/debian_version')
+  packages_debian.each do |pkg|
+    package pkg do
+        options "--force-yes"
+      action :install
+    end
   end
+elsif File.exist?('/etc/redhat-release')
+  packages_yum.each do |pkg|
+    package pkg do
+      action :install
+    end
+  end
+else
+  Chef::Application.exit!("This recipe only supports Debian or Red Hat Compatible Variants")
 end
 
 execute 'run-euca_conf-setup' do
@@ -30,6 +43,14 @@ template "/etc/libvirt/libvirtd.conf" do
   source "libvirtd.conf.erb"
 end
 
+group "libvirt"
+
+group "libvirt" do
+  members ["eucalyptus", "root"]
+  action :modify
+  append true
+end
+
 sockets = ['/var/run/libvirt/libvirt-sock', '/var/run/libvirt/libvirt-sock-ro']
 
 sockets.each do |skt|
@@ -38,25 +59,47 @@ sockets.each do |skt|
   end
 end
 
-cron "sync time with cloud-controller" do
-  command "/usr/sbin/ntpdate #{node[:euca][:front_end]}"
-  user    'root'
+front_end = node[:euca][:front_end]
+if node[:euca][:test]
+  front_end = node[:euca][:test_front_end]
+end
 
+cron "sync time with cloud-controller" do
+  command "/usr/sbin/ntpdate #{front_end}"
+  user    'root'
   minute  '*/3'
 end
 
+
 ruby_block 'update-loop-devices-in-etc-modules' do
-  block do
-    existing_etc_modules = File.read("/etc/modules")
-    loop_entry = "loop max_loop=64\n"
-    if existing_etc_modules.match(/^loop/)
-      existing_etc_modules.gsub(/^loop/, loop_entry)
+  #TODO: Turn into LWRP
+  def limit_loop_devices(config_file, loop_entry, regex_loop)
+    begin
+      existing_etc_modules = File.read(config_file)
+    rescue Errno::ENOENT
+      existing_etc_modules = ""
+    end
+    if existing_etc_modules.match(regex_loop)
+      existing_etc_modules.gsub(regex_loop, loop_entry)
     else
       existing_etc_modules << loop_entry
     end
 
-    File.open("/etc/modules", 'w+') do |f|
+    File.open(config_file, 'w+') do |f|
       f << existing_etc_modules
+    end
+  end
+
+  debian_loop_config = ["/etc/modules", "loop max_loop=64\n", /^loop/]
+  centos_loop_config = ["/etc/modprobe.d/dist-euca", "options loop max_loop=64\n", /^options\s+loop/]
+
+  block do
+    if File.exists?('/etc/debian_version')
+      limit_loop_devices(*debian_loop_config)
+    elsif File.exists?('/etc/redhat-release')
+      limit_loop_devices(*centos_loop_config)
+    else
+      Chef::Application.exit!("This recipe only supports Debian or Red Hat Compatible Variants")
     end
   end
 end

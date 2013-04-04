@@ -1,4 +1,8 @@
-default[:euca][:install][:version] = "3.1.2"
+default[:euca][:install][:version] = "3.2"
+default[:euca][:install][:euca2ools][:version] = "2.1"
+
+default[:euca][:test_mode] = false
+default[:euca][:test_front_end] = "10.200.1.15"
 
 default[:euca][:user] = "eucalyptus"
 default[:euca][:hypervisor] = "kvm"
